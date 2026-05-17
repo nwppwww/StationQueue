@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบคิว 5 สนาม - THRCC</title>
+<meta name="description" content="ระบบจัดการคิว 5 สนาม สำหรับ THRCC พร้อมประวัติการเรียกคิวแบบถาวร">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--surface:#12121a;--border:#1e1e2e;--A:#f97316;--B:#22c55e;--C:#3b82f6;--D:#a855f7;--E:#ec4899;--text:#e2e8f0;--muted:#64748b;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Sarabun',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(circle at 20% 50%,rgba(249,115,22,.03) 0%,transparent 50%),radial-gradient(circle at 80% 20%,rgba(34,197,94,.03) 0%,transparent 50%),radial-gradient(circle at 50% 80%,rgba(59,130,246,.03) 0%,transparent 50%);pointer-events:none;z-index:0;}
+.app{position:relative;z-index:1;}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:10px 32px;border-bottom:1px solid var(--border);background:rgba(15,15,24,.9);backdrop-filter:blur(10px);position:sticky;top:0;z-index:100;}
+.logo-area{display:flex;align-items:center;gap:12px;}
+.logo-text{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:#fff;}
+.logo-sub{font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+.tab-bar{display:flex;gap:4px;}
+.tab-btn{padding:8px 20px;border:none;border-radius:8px;cursor:pointer;font-family:'Sarabun',sans-serif;font-size:14px;font-weight:600;transition:all .2s;background:transparent;color:var(--muted);}
+.tab-btn.active{color:#fff;background:#1e1e2e;}
+.header-right{display:flex;gap:8px;align-items:center;}
+.reset-btn{padding:8px 16px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;cursor:pointer;font-family:'Sarabun',sans-serif;font-size:13px;transition:all .2s;}
+.reset-btn:hover{background:rgba(239,68,68,.1);}
+.export-btn{padding:8px 16px;border-radius:8px;border:1px solid #22c55e;background:transparent;color:#22c55e;cursor:pointer;font-family:'Sarabun',sans-serif;font-size:13px;transition:all .2s;}
+.export-btn:hover{background:rgba(34,197,94,.1);}
+
+/* DISPLAY */
+#view-display{display:none;padding:24px 32px;}
+#view-display.active{display:block;}
+.display-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;}
+.station-card{border-radius:16px;padding:24px 20px;text-align:center;position:relative;overflow:hidden;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.station-card::before{content:'';position:absolute;inset:0;background:currentColor;opacity:.08;}
+.station-label{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;margin-bottom:8px;opacity:.9;}
+.current-num{font-family:'Bebas Neue',sans-serif;font-size:88px;line-height:1;color:#fff;text-shadow:0 0 40px currentColor;transition:all .3s;min-height:88px;}
+.next-label{font-size:12px;font-weight:600;letter-spacing:2px;opacity:.6;margin-top:8px;text-transform:uppercase;}
+.next-num{font-family:'Bebas Neue',sans-serif;font-size:32px;opacity:.85;}
+.pulse-ring{position:absolute;inset:-2px;border-radius:18px;border:2px solid currentColor;opacity:0;animation:pulse-out 2s ease-out infinite;}
+@keyframes pulse-out{0%{opacity:.6;transform:scale(1);}100%{opacity:0;transform:scale(1.03);}}
+.card-A{color:var(--A);border:2px solid var(--A);}
+.card-B{color:var(--B);border:2px solid var(--B);}
+.card-C{color:var(--C);border:2px solid var(--C);}
+.card-D{color:var(--D);border:2px solid var(--D);}
+.card-E{color:var(--E);border:2px solid var(--E);}
+
+/* QUEUE */
+#view-queue{display:none;padding:24px 32px;}
+#view-queue.active{display:block;}
+.queue-layout{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;}
+.queue-column{background:var(--surface);border-radius:16px;overflow:hidden;border:1px solid var(--border);}
+.queue-col-header{padding:14px 16px;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.col-A .queue-col-header{background:rgba(249,115,22,.15);color:var(--A);border-bottom:2px solid var(--A);}
+.col-B .queue-col-header{background:rgba(34,197,94,.15);color:var(--B);border-bottom:2px solid var(--B);}
+.col-C .queue-col-header{background:rgba(59,130,246,.15);color:var(--C);border-bottom:2px solid var(--C);}
+.col-D .queue-col-header{background:rgba(168,85,247,.15);color:var(--D);border-bottom:2px solid var(--D);}
+.col-E .queue-col-header{background:rgba(236,72,153,.15);color:var(--E);border-bottom:2px solid var(--E);}
+.col-counter{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:1px;}
+.queue-scroll{max-height:580px;overflow-y:auto;padding:8px;}
+.queue-scroll::-webkit-scrollbar{width:4px;}
+.queue-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.q-row{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:8px;border-bottom:1px solid rgba(255,255,255,.04);}
+.q-row:last-child{border-bottom:none;}
+.q-num{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;min-width:36px;text-align:center;color:var(--text);}
+.q-row.is-current{background:rgba(255,255,255,.06);}
+.q-row.is-next{background:rgba(255,255,255,.03);}
+.q-row.is-current .q-num{color:#fff;font-size:15px;}
+.btn-next{flex:1;padding:6px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Sarabun',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;text-align:center;line-height:1.3;}
+.btn-next:hover{color:#fff;border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.06);}
+.col-A .q-row.is-current .btn-next{background:rgba(249,115,22,.3);border-color:var(--A);color:var(--A);}
+.col-B .q-row.is-current .btn-next{background:rgba(34,197,94,.3);border-color:var(--B);color:var(--B);}
+.col-C .q-row.is-current .btn-next{background:rgba(59,130,246,.3);border-color:var(--C);color:var(--C);}
+.col-D .q-row.is-current .btn-next{background:rgba(168,85,247,.3);border-color:var(--D);color:var(--D);}
+.col-E .q-row.is-current .btn-next{background:rgba(236,72,153,.3);border-color:var(--E);color:var(--E);}
+.col-A .q-row.is-next .btn-next{background:rgba(249,115,22,.12);border-color:var(--A);border-style:dashed;color:var(--A);}
+.col-B .q-row.is-next .btn-next{background:rgba(34,197,94,.12);border-color:var(--B);border-style:dashed;color:var(--B);}
+.col-C .q-row.is-next .btn-next{background:rgba(59,130,246,.12);border-color:var(--C);border-style:dashed;color:var(--C);}
+.col-D .q-row.is-next .btn-next{background:rgba(168,85,247,.12);border-color:var(--D);border-style:dashed;color:var(--D);}
+.col-E .q-row.is-next .btn-next{background:rgba(236,72,153,.12);border-color:var(--E);border-style:dashed;color:var(--E);}
+
+/* HISTORY */
+#view-history{display:none;padding:24px 32px;}
+#view-history.active{display:block;}
+.history-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+.history-tabs{display:flex;gap:8px;flex-wrap:wrap;}
+.hist-tab{padding:8px 20px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'Sarabun',sans-serif;font-size:14px;font-weight:600;transition:all .2s;}
+.hist-tab[data-station="A"].active{background:rgba(249,115,22,.2);border-color:var(--A);color:var(--A);}
+.hist-tab[data-station="B"].active{background:rgba(34,197,94,.2);border-color:var(--B);color:var(--B);}
+.hist-tab[data-station="C"].active{background:rgba(59,130,246,.2);border-color:var(--C);color:var(--C);}
+.hist-tab[data-station="D"].active{background:rgba(168,85,247,.2);border-color:var(--D);color:var(--D);}
+.hist-tab[data-station="E"].active{background:rgba(236,72,153,.2);border-color:var(--E);color:var(--E);}
+.hist-tab[data-station="ALL"].active{background:rgba(255,255,255,.1);border-color:#fff;color:#fff;}
+.hist-stats{display:flex;gap:12px;flex-wrap:wrap;}
+.stat-chip{padding:6px 14px;border-radius:20px;font-size:12px;font-family:'IBM Plex Mono',monospace;background:var(--surface);border:1px solid var(--border);color:var(--muted);}
+.history-table{background:var(--surface);border-radius:12px;overflow:hidden;border:1px solid var(--border);}
+.history-table table{width:100%;border-collapse:collapse;}
+.history-table th{padding:12px 16px;text-align:left;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;}
+.history-table td{padding:12px 16px;font-size:14px;border-bottom:1px solid rgba(255,255,255,.04);font-family:'IBM Plex Mono',monospace;}
+.history-table tr:last-child td{border-bottom:none;}
+.history-table tr:hover td{background:rgba(255,255,255,.02);}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:1px;}
+.badge-A{background:rgba(249,115,22,.2);color:var(--A);}
+.badge-B{background:rgba(34,197,94,.2);color:var(--B);}
+.badge-C{background:rgba(59,130,246,.2);color:var(--C);}
+.badge-D{background:rgba(168,85,247,.2);color:var(--D);}
+.badge-E{background:rgba(236,72,153,.2);color:var(--E);}
+.empty-state{padding:60px;text-align:center;color:var(--muted);font-size:14px;}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.3;}
+.history-clear-btn{padding:8px 16px;border-radius:8px;border:1px solid rgba(239,68,68,.4);background:transparent;color:rgba(239,68,68,.7);cursor:pointer;font-family:'Sarabun',sans-serif;font-size:13px;transition:all .2s;}
+.history-clear-btn:hover{background:rgba(239,68,68,.1);color:#ef4444;border-color:#ef4444;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:#1e1e2e;border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:14px;color:var(--text);z-index:9999;transform:translateY(100px);opacity:0;transition:all .3s;max-width:300px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-color:#22c55e;color:#22c55e;}
+
+@keyframes flash-in{0%{transform:scale(1.15);}100%{transform:scale(1);}}
+.flash{animation:flash-in .35s ease-out;}
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+@media(max-width:900px){
+  .display-grid,.queue-layout{grid-template-columns:repeat(3,1fr);}
+  header{flex-wrap:wrap;gap:8px;padding:10px 16px;}
+  #view-display,#view-queue,#view-history{padding:16px;}
+}
+@media(max-width:600px){
+  .display-grid,.queue-layout{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="logo-area">
+    <div>
+      <div class="logo-text">THRCC</div>
+      <div class="logo-sub">ระบบคิว 5 สนาม</div>
+    </div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-display" onclick="switchTab('display')">📺 แสดงผล</button>
+    <button class="tab-btn" id="tab-queue" onclick="switchTab('queue')">📋 จัดการคิว</button>
+    <button class="tab-btn" id="tab-history" onclick="switchTab('history')">📜 ประวัติ</button>
+  </div>
+  <div class="header-right">
+    <button class="export-btn" onclick="exportHistory()" title="ส่งออกประวัติ CSV">⬇ ส่งออก</button>
+    <button class="reset-btn" onclick="confirmReset()">↺ รีเซ็ต</button>
+  </div>
+</header>
+
+<!-- DISPLAY VIEW -->
+<div id="view-display" class="active">
+  <div class="display-grid" id="display-grid"></div>
+</div>
+
+<!-- QUEUE VIEW -->
+<div id="view-queue">
+  <div class="queue-layout" id="queue-layout"></div>
+</div>
+
+<!-- HISTORY VIEW -->
+<div id="view-history">
+  <div class="history-header">
+    <div class="history-tabs" id="history-tabs">
+      <button class="hist-tab active" data-station="ALL" onclick="filterHistory('ALL')">ทั้งหมด</button>
+      <button class="hist-tab" data-station="A" onclick="filterHistory('A')">สนาม A</button>
+      <button class="hist-tab" data-station="B" onclick="filterHistory('B')">สนาม B</button>
+      <button class="hist-tab" data-station="C" onclick="filterHistory('C')">สนาม C</button>
+      <button class="hist-tab" data-station="D" onclick="filterHistory('D')">สนาม D</button>
+      <button class="hist-tab" data-station="E" onclick="filterHistory('E')">สนาม E</button>
+    </div>
+    <div class="hist-stats" id="hist-stats"></div>
+  </div>
+  <div id="history-table-wrap"></div>
+  <div style="margin-top:16px;text-align:right;">
+    <button class="history-clear-btn" onclick="clearHistory()">🗑 ล้างประวัติทั้งหมด</button>
+  </div>
+</div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const STATIONS = ['A','B','C','D','E'];
+const QUEUE_SIZE = 10;
+const STORAGE_KEY = 'thrcc_queue_state';
+const HISTORY_KEY = 'thrcc_history';
+
+const STATION_NAMES = {A:'สนาม A',B:'สนาม B',C:'สนาม C',D:'สนาม D',E:'สนาม E'};
+
+// State: currentIdx = index in queues[] that is current (being served)
+let state = {
+  queues: { A:[], B:[], C:[], D:[], E:[] },
+  currentIdx: { A:0, B:0, C:0, D:0, E:0 }
+};
+
+// History array stored in localStorage
+let history = [];
+
+let historyFilter = 'ALL';
+
+// ============================================================
+// PERSISTENCE
+// ============================================================
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Validate structure
+      if (parsed.queues && parsed.currentIdx) {
+        state = parsed;
+        // Ensure all stations exist
+        STATIONS.forEach(s => {
+          if (!state.queues[s]) state.queues[s] = [];
+          if (state.currentIdx[s] === undefined) state.currentIdx[s] = 0;
+        });
+      }
+    }
+  } catch(e) {}
+}
+
+function saveHistory() {
+  try {
+    // Keep last 1000 entries
+    if (history.length > 1000) history = history.slice(history.length - 1000);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  } catch(e) {}
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (raw) history = JSON.parse(raw);
+  } catch(e) { history = []; }
+}
+
+// ============================================================
+// INIT QUEUES
+// ============================================================
+function initQueue(station) {
+  if (state.queues[station].length === 0) {
+    const q = [];
+    for (let i = 1; i <= QUEUE_SIZE; i++) q.push({ num: i, done: false });
+    state.queues[station] = q;
+    state.currentIdx[station] = 0;
+  }
+}
+
+function initAllQueues() {
+  STATIONS.forEach(s => initQueue(s));
+}
+
+// ============================================================
+// CALL NEXT (advance current pointer)
+// ============================================================
+function callNext(station) {
+  const q = state.queues[station];
+  const idx = state.currentIdx[station];
+
+  if (idx >= q.length) return; // nothing to call
+
+  const entry = q[idx];
+  const now = new Date();
+
+  // Record in history
+  history.push({
+    station,
+    num: entry.num,
+    time: now.toISOString(),
+    timeStr: now.toLocaleTimeString('th-TH', {hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+    dateStr: now.toLocaleDateString('th-TH', {year:'numeric',month:'2-digit',day:'2-digit'})
+  });
+  saveHistory();
+
+  // Advance
+  state.currentIdx[station] = idx + 1;
+  saveState();
+
+  renderAll();
+  animateCard(station);
+  showToast(`${STATION_NAMES[station]}: เรียกคิว ${getDisplayNum(station, idx)}`, 'success');
+}
+
+function getDisplayNum(station, idx) {
+  const q = state.queues[station];
+  if (idx < q.length) return q[idx].num;
+  return '-';
+}
+
+function getCurrentNum(station) {
+  const idx = state.currentIdx[station];
+  const q = state.queues[station];
+  if (idx === 0) return '-';
+  if (idx > q.length) return q[q.length-1].num;
+  return q[idx-1].num;
+}
+
+function getNextNum(station) {
+  const idx = state.currentIdx[station];
+  const q = state.queues[station];
+  if (idx >= q.length) return '-';
+  return q[idx].num;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderAll() {
+  renderDisplay();
+  renderQueue();
+  if (document.getElementById('view-history').classList.contains('active')) {
+    renderHistory();
+  }
+}
+
+function renderDisplay() {
+  const grid = document.getElementById('display-grid');
+  grid.innerHTML = STATIONS.map(s => {
+    const cur = getCurrentNum(s);
+    const nxt = getNextNum(s);
+    return `
+    <div class="station-card card-${s}" id="card-${s}">
+      <div class="pulse-ring"></div>
+      <div class="station-label">${STATION_NAMES[s]}</div>
+      <div class="current-num" id="disp-cur-${s}">${cur}</div>
+      <div class="next-label">ถัดไป</div>
+      <div class="next-num" id="disp-next-${s}">${nxt}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderQueue() {
+  const layout = document.getElementById('queue-layout');
+  layout.innerHTML = STATIONS.map(s => {
+    const q = state.queues[s];
+    const idx = state.currentIdx[s];
+    const remaining = q.length - idx;
+
+    const rows = q.map((entry, i) => {
+      let cls = '';
+      if (i === idx - 1) cls = 'is-current'; // being served now
+      else if (i === idx) cls = 'is-next'; // next up
+
+      const isDone = i < idx - 1; // already called
+      const label = isDone ? '✓ เสร็จ' :
+                    (i === idx - 1 ? '▶ กำลังเล่น' :
+                    (i === idx ? '⬸ ถัดไป' : 'เรียก'));
+
+      return `<div class="q-row ${cls}" id="row-${s}-${i}">
+        <span class="q-num" style="${isDone ? 'opacity:.35;text-decoration:line-through;' : ''}">${entry.num}</span>
+        <button class="btn-next" onclick="callNext('${s}')"
+          ${(isDone || i > idx) ? 'style="display:none"' : ''}>
+          ${label}
+        </button>
+        ${isDone ? `<span style="flex:1;font-size:11px;color:var(--muted);text-align:center;font-family:'IBM Plex Mono'">✓</span>` : ''}
+      </div>`;
+    }).join('');
+
+    return `<div class="queue-column col-${s}">
+      <div class="queue-col-header">
+        <span>${STATION_NAMES[s]}</span>
+        <span class="col-counter">เหลือ ${remaining}/${q.length} คิว</span>
+      </div>
+      <div class="queue-scroll">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderHistory() {
+  // Stats
+  const stats = {};
+  STATIONS.forEach(s => stats[s] = 0);
+  history.forEach(h => { if(stats[h.station] !== undefined) stats[h.station]++; });
+  const total = history.length;
+
+  const statsEl = document.getElementById('hist-stats');
+  statsEl.innerHTML = `
+    <span class="stat-chip">รวม: ${total}</span>
+    ${STATIONS.map(s => `<span class="stat-chip" style="color:var(--${s})">${STATION_NAMES[s]}: ${stats[s]}</span>`).join('')}
+  `;
+
+  // Filter
+  const filtered = historyFilter === 'ALL'
+    ? [...history].reverse()
+    : [...history].filter(h => h.station === historyFilter).reverse();
+
+  const wrap = document.getElementById('history-table-wrap');
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div>ยังไม่มีประวัติการเรียกคิว</div>`;
+    return;
+  }
+
+  wrap.innerHTML = `<div class="history-table">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>สนาม</th>
+          <th>คิว</th>
+          <th>วันที่</th>
+          <th>เวลา</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.map((h, i) => `
+          <tr>
+            <td style="color:var(--muted)">${total - i}</td>
+            <td><span class="badge badge-${h.station}">${STATION_NAMES[h.station]}</span></td>
+            <td style="font-size:18px;font-weight:700;color:var(--${h.station})">${h.num}</td>
+            <td>${h.dateStr || '-'}</td>
+            <td>${h.timeStr || '-'}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function switchTab(tab) {
+  ['display','queue','history'].forEach(t => {
+    document.getElementById(`view-${t}`).classList.remove('active');
+    document.getElementById(`tab-${t}`).classList.remove('active');
+  });
+  document.getElementById(`view-${tab}`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (tab === 'history') renderHistory();
+}
+
+function filterHistory(station) {
+  historyFilter = station;
+  document.querySelectorAll('.hist-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.station === station);
+  });
+  renderHistory();
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function animateCard(station) {
+  const card = document.getElementById(`card-${station}`);
+  if (card) {
+    card.classList.remove('flash');
+    void card.offsetWidth;
+    card.classList.add('flash');
+  }
+}
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function confirmReset() {
+  if (confirm('⚠️ รีเซ็ตคิวทุกสนาม?\n\nประวัติจะยังคงอยู่')) {
+    STATIONS.forEach(s => {
+      state.queues[s] = [];
+      state.currentIdx[s] = 0;
+    });
+    initAllQueues();
+    saveState();
+    renderAll();
+    showToast('รีเซ็ตคิวเรียบร้อย');
+  }
+}
+
+function clearHistory() {
+  if (!confirm('ลบประวัติทั้งหมด?\nไม่สามารถกู้คืนได้')) return;
+  history = [];
+  saveHistory();
+  renderHistory();
+  showToast('ล้างประวัติเรียบร้อย');
+}
+
+function exportHistory() {
+  if (history.length === 0) { showToast('ไม่มีข้อมูลประวัติ'); return; }
+  const rows = [['ลำดับ','สนาม','คิว','วันที่','เวลา']];
+  [...history].reverse().forEach((h, i) => {
+    rows.push([i+1, STATION_NAMES[h.station], h.num, h.dateStr||'', h.timeStr||'']);
+  });
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `thrcc-history-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('ส่งออกไฟล์เรียบร้อย ✓', 'success');
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+loadHistory();
+loadState();
+initAllQueues();
+saveState();
+renderAll();
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  const map = {'a':'A','b':'B','c':'C','d':'D','e':'E'};
+  if (e.altKey && map[e.key]) { callNext(map[e.key]); }
+});
+</script>
+</body>
+</html>
