@@ -197,12 +197,54 @@ async function loadFromSupabase() {
     }
   } catch(e) { console.warn('sb load:',e); }
 }
+// บันทึก state (current/next) ของแต่ละสนามลง Supabase
+async function saveStateToSupabase(station) {
+  if (!supabaseClient) return;
+  const st = state[station];
+  try {
+    await supabaseClient.from('queue_state').upsert({
+      station,
+      current_num: st.current,
+      next_num: st.next
+    }, { onConflict: 'station' });
+  } catch(e) { console.warn('sb state save:', e); }
+}
+// โหลด state จาก Supabase ตอนเปิดหน้า
+async function loadStateFromSupabase() {
+  if (!supabaseClient) return;
+  try {
+    const {data, error} = await supabaseClient.from('queue_state').select('*');
+    if (error) throw error;
+    if (data) {
+      data.forEach(r => {
+        if (state[r.station] !== undefined) {
+          state[r.station].current = r.current_num || null;
+          state[r.station].next = r.next_num || null;
+          updateDisplay(r.station);
+          renderColumn(r.station);
+        }
+      });
+    }
+  } catch(e) { console.warn('sb state load:', e); }
+}
 function subscribeRealtime() {
   if (!supabaseClient) return;
-  supabaseClient.channel('q_ch').on('postgres_changes',{event:'INSERT',schema:'public',table:'queue_history'},p=>{
+  // Sync ประวัติ
+  supabaseClient.channel('q_history').on('postgres_changes',{event:'INSERT',schema:'public',table:'queue_history'},p=>{
     const r=p.new;
     if (!history.some(h=>h.num===r.num&&h.station===r.station&&Math.abs(new Date(r.called_at)-Date.now())<3000)){
       history.unshift({num:r.num,station:r.station,time:new Date(r.called_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})});
+      renderHistory();
+    }
+  }).subscribe();
+  // Sync สถานะคิวข้ามอุปกรณ์ ← ตรงนี้ทำให้หน้าจออื่นอัปเดต!
+  supabaseClient.channel('q_state').on('postgres_changes',{event:'UPDATE',schema:'public',table:'queue_state'},p=>{
+    const r=p.new;
+    if (state[r.station] !== undefined) {
+      state[r.station].current = r.current_num || null;
+      state[r.station].next = r.next_num || null;
+      updateDisplay(r.station);
+      renderColumn(r.station);
       renderHistory();
     }
   }).subscribe();
@@ -267,7 +309,8 @@ function pressNext(station, num) {
     const now = new Date();
     const rec = { num: promoted, station, time: now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) };
     history.unshift(rec);
-    saveToSupabase(rec); // บันทึกลง Supabase
+    saveToSupabase(rec);        // บันทึกประวัติลง Supabase
+    saveStateToSupabase(station); // sync state ข้ามอุปกรณ์
 
     // Flash
     const el = document.getElementById('disp-' + station);
@@ -362,7 +405,8 @@ STATIONS.forEach(s => { updateDisplay(s); renderColumn(s); });
 
 // Auto-connect Supabase on load
 if (initSupabase()) {
-  loadFromSupabase().then(() => subscribeRealtime());
+  Promise.all([loadFromSupabase(), loadStateFromSupabase()])
+    .then(() => subscribeRealtime());
   console.log('✅ Supabase connected!');
 }
 </script>
