@@ -230,24 +230,30 @@ async function loadStateFromSupabase() {
 function subscribeRealtime() {
   if (!supabaseClient) return;
   // Sync ประวัติ
-  supabaseClient.channel('q_history').on('postgres_changes',{event:'INSERT',schema:'public',table:'queue_history'},p=>{
-    const r=p.new;
-    if (!history.some(h=>h.num===r.num&&h.station===r.station&&Math.abs(new Date(r.called_at)-Date.now())<3000)){
-      history.unshift({num:r.num,station:r.station,time:new Date(r.called_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})});
-      renderHistory();
-    }
-  }).subscribe();
-  // Sync สถานะคิวข้ามอุปกรณ์ ← ตรงนี้ทำให้หน้าจออื่นอัปเดต!
-  supabaseClient.channel('q_state').on('postgres_changes',{event:'UPDATE',schema:'public',table:'queue_state'},p=>{
-    const r=p.new;
-    if (state[r.station] !== undefined) {
-      state[r.station].current = r.current_num || null;
-      state[r.station].next = r.next_num || null;
-      updateDisplay(r.station);
-      renderColumn(r.station);
-      renderHistory();
-    }
-  }).subscribe();
+  supabaseClient.channel('q_history')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'queue_history'},p=>{
+      const r=p.new;
+      console.log('📋 history INSERT received:', r);
+      if (!history.some(h=>h.num===r.num&&h.station===r.station&&Math.abs(new Date(r.called_at)-Date.now())<3000)){
+        history.unshift({num:r.num,station:r.station,time:new Date(r.called_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})});
+        renderHistory();
+      }
+    })
+    .subscribe(status => console.log('q_history channel:', status));
+  // Sync สถานะคิวข้ามอุปกรณ์
+  supabaseClient.channel('q_state')
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'queue_state'},p=>{
+      const r=p.new;
+      console.log('🔄 queue_state UPDATE received:', r);
+      if (state[r.station] !== undefined) {
+        state[r.station].current = r.current_num || null;
+        state[r.station].next = r.next_num || null;
+        updateDisplay(r.station);
+        renderColumn(r.station);
+        renderHistory();
+      }
+    })
+    .subscribe(status => console.log('q_state channel:', status));
 }
 async function clearSupabaseHistory(){
   if(!supabaseClient) return;
