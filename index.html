@@ -174,7 +174,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 // ===== SUPABASE =====
 let supabaseClient = null;
 let supabaseUrl = localStorage.getItem('sb_url') || 'https://dszbgyulmumhyrhsqqau.supabase.co';
-let supabaseKey = localStorage.getItem('sb_key') || 'sb_publishable_jZfmL67X6885w_fIUY8QaA_7cjffoc1';
+let supabaseKey = localStorage.getItem('sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzemJneXVsbXVtaHlyaHNxcWF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTc4MDYsImV4cCI6MjA5NDU3MzgwNn0.CRPzHioahsNek1PDo9HRxlI5COtQsMMSEad8Bkbl6zw';
 
 function initSupabase() {
   if (!supabaseUrl || !supabaseKey) return false;
