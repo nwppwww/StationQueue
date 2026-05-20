@@ -276,7 +276,7 @@ function saveSbSettings(){
 // ======================
 
 const STATIONS = ['A','B','C','D','E'];
-const MAX = 19;
+const STATION_MAX = { A: 19, B: 19, C: 19, D: 24, E: 19 };
 let state = {};
 let history = [];
 let currentHistTab = 'ALL';
@@ -288,7 +288,8 @@ function initState() {
 
 function queueNums(s) {
   const arr = [];
-  for (let i = 1; i <= MAX; i++) arr.push(String(i).padStart(2,'0') + s);
+  const max = STATION_MAX[s] || 19;
+  for (let i = 1; i <= max; i++) arr.push(String(i).padStart(2,'0') + s);
   return arr;
 }
 
