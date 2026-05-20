@@ -117,7 +117,6 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="app">
@@ -129,7 +128,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <button class="tab-btn" onclick="switchView('queue',this)">🎯 เลือกคิว</button>
     <button class="tab-btn" onclick="switchView('history',this)">📋 ประวัติ</button>
   </div>
-  <button onclick="resetAll()">รีเซ็ตทั้งหมด</button>
+  <button class="reset-btn" onclick="resetAll()">รีเซ็ตทั้งหมด</button>
 </header>
 
 <div id="view-display" class="active">
@@ -171,110 +170,6 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
 </div>
 <script>
-// ===== SUPABASE =====
-let supabaseClient = null;
-let supabaseUrl = localStorage.getItem('sb_url') || 'https://dszbgyulmumhyrhsqqau.supabase.co';
-let supabaseKey = localStorage.getItem('sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzemJneXVsbXVtaHlyaHNxcWF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5OTc4MDYsImV4cCI6MjA5NDU3MzgwNn0.CRPzHioahsNek1PDo9HRxlI5COtQsMMSEad8Bkbl6zw';
-
-function initSupabase() {
-  if (!supabaseUrl || !supabaseKey) return false;
-  try { supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey); return true; }
-  catch(e) { return false; }
-}
-async function saveToSupabase(rec) {
-  if (!supabaseClient) return;
-  try { await supabaseClient.from('queue_history').insert({num:rec.num,station:rec.station,called_at:new Date().toISOString()}); }
-  catch(e) { console.warn('sb save:',e); }
-}
-async function loadFromSupabase() {
-  if (!supabaseClient) return;
-  try {
-    const {data,error} = await supabaseClient.from('queue_history').select('*').order('called_at',{ascending:false}).limit(300);
-    if (error) throw error;
-    if (data && data.length) {
-      history = data.map(r=>({num:r.num,station:r.station,time:new Date(r.called_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}));
-      renderHistory();
-    }
-  } catch(e) { console.warn('sb load:',e); }
-}
-// บันทึก state (current/next) ของแต่ละสนามลง Supabase
-async function saveStateToSupabase(station) {
-  if (!supabaseClient) return;
-  const st = state[station];
-  try {
-    await supabaseClient.from('queue_state').upsert({
-      station,
-      current_num: st.current,
-      next_num: st.next
-    }, { onConflict: 'station' });
-  } catch(e) { console.warn('sb state save:', e); }
-}
-// โหลด state จาก Supabase ตอนเปิดหน้า
-async function loadStateFromSupabase() {
-  if (!supabaseClient) return;
-  try {
-    const {data, error} = await supabaseClient.from('queue_state').select('*');
-    if (error) throw error;
-    if (data) {
-      data.forEach(r => {
-        if (state[r.station] !== undefined) {
-          state[r.station].current = r.current_num || null;
-          state[r.station].next = r.next_num || null;
-          updateDisplay(r.station);
-          renderColumn(r.station);
-        }
-      });
-    }
-  } catch(e) { console.warn('sb state load:', e); }
-}
-function subscribeRealtime() {
-  if (!supabaseClient) return;
-  // Sync ประวัติ
-  supabaseClient.channel('q_history')
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'queue_history'},p=>{
-      const r=p.new;
-      console.log('📋 history INSERT received:', r);
-      if (!history.some(h=>h.num===r.num&&h.station===r.station&&Math.abs(new Date(r.called_at)-Date.now())<3000)){
-        history.unshift({num:r.num,station:r.station,time:new Date(r.called_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})});
-        renderHistory();
-      }
-    })
-    .subscribe(status => console.log('q_history channel:', status));
-  // Sync สถานะคิวข้ามอุปกรณ์
-  supabaseClient.channel('q_state')
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'queue_state'},p=>{
-      const r=p.new;
-      console.log('🔄 queue_state UPDATE received:', r);
-      if (state[r.station] !== undefined) {
-        state[r.station].current = r.current_num || null;
-        state[r.station].next = r.next_num || null;
-        updateDisplay(r.station);
-        renderColumn(r.station);
-        renderHistory();
-      }
-    })
-    .subscribe(status => console.log('q_state channel:', status));
-}
-async function clearSupabaseHistory(){
-  if(!supabaseClient) return;
-  try{await supabaseClient.from('queue_history').delete().neq('id',0);}catch(e){}
-}
-function openSbModal(){
-  document.getElementById('sb-url').value=localStorage.getItem('sb_url')||'';
-  document.getElementById('sb-key').value=localStorage.getItem('sb_key')||'';
-  document.getElementById('sb-modal').style.display='flex';
-}
-function saveSbSettings(){
-  supabaseUrl=document.getElementById('sb-url').value.trim();
-  supabaseKey=document.getElementById('sb-key').value.trim();
-  localStorage.setItem('sb_url',supabaseUrl);
-  localStorage.setItem('sb_key',supabaseKey);
-  document.getElementById('sb-modal').style.display='none';
-  if(initSupabase()){history=[];loadFromSupabase().then(()=>subscribeRealtime());alert('✅ เชื่อมต่อ Supabase สำเร็จ!');}
-  else{alert('❌ กรุณาใส่ URL และ Key ให้ถูกต้อง');}
-}
-// ======================
-
 const STATIONS = ['A','B','C','D','E'];
 const MAX = 19;
 let state = {};
@@ -313,10 +208,10 @@ function pressNext(station, num) {
 
     // Log promoted to history
     const now = new Date();
-    const rec = { num: promoted, station, time: now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) };
-    history.unshift(rec);
-    saveToSupabase(rec);        // บันทึกประวัติลง Supabase
-    saveStateToSupabase(station); // sync state ข้ามอุปกรณ์
+    history.unshift({
+      num: promoted, station,
+      time: now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
+    });
 
     // Flash
     const el = document.getElementById('disp-' + station);
@@ -408,37 +303,6 @@ function resetAll() {
 
 initState();
 STATIONS.forEach(s => { updateDisplay(s); renderColumn(s); });
-
-// Auto-connect Supabase on load
-if (initSupabase()) {
-  Promise.all([loadFromSupabase(), loadStateFromSupabase()])
-    .then(() => subscribeRealtime());
-  console.log('✅ Supabase connected!');
-}
 </script>
-<div id="sb-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
-  <div style="background:#12121a;border:1px solid #2a2a3e;border-radius:14px;padding:32px;width:min(500px,90vw);color:#e2e8f0">
-    <h3 style="margin:0 0 4px;font-size:1.1rem;display:flex;align-items:center;gap:8px">⚙️ ตั้งค่า Supabase</h3>
-    <p style="margin:0 0 20px;font-size:.8rem;color:#64748b">เชื่อมต่อเพื่อเก็บประวัติแบบ real-time ข้ามอุปกรณ์</p>
-    <label style="display:block;margin-bottom:6px;font-size:.82rem;color:#94a3b8">Project URL</label>
-    <input id="sb-url" type="text" placeholder="https://xxxx.supabase.co" style="width:100%;padding:10px 12px;background:#0a0a0f;border:1px solid #2a2a3e;border-radius:8px;color:#e2e8f0;font-size:.9rem;box-sizing:border-box;margin-bottom:14px">
-    <label style="display:block;margin-bottom:6px;font-size:.82rem;color:#94a3b8">Anon Key</label>
-    <input id="sb-key" type="password" placeholder="eyJhbGci..." style="width:100%;padding:10px 12px;background:#0a0a0f;border:1px solid #2a2a3e;border-radius:8px;color:#e2e8f0;font-size:.9rem;box-sizing:border-box;margin-bottom:20px">
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button onclick="document.getElementById('sb-modal').style.display='none'" style="padding:9px 20px;background:#1e1e2e;border:1px solid #333;border-radius:8px;color:#94a3b8;cursor:pointer">ยกเลิก</button>
-      <button onclick="saveSbSettings()" style="padding:9px 20px;background:#3b82f6;border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:700">💾 บันทึก</button>
-    </div>
-    <details style="margin-top:16px">
-      <summary style="font-size:.75rem;color:#64748b;cursor:pointer">📋 SQL สร้างตาราง</summary>
-      <pre style="margin:8px 0 0;padding:10px;background:#0a0a0f;border-radius:6px;font-size:.72rem;color:#94a3b8;overflow-x:auto">CREATE TABLE queue_history (
-  id bigserial primary key,
-  num text,
-  station text,
-  called_at timestamptz default now()
-);
-ALTER TABLE queue_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "allow all" ON queue_history FOR ALL USING (true);</pre>
-    </details>
-  </div>
-</div></body>
+</body>
 </html>
